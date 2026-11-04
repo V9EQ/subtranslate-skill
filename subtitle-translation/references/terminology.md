@@ -4,7 +4,7 @@ Read before creating or changing a glossary. The glossary records translation de
 
 ## Build an evidence-backed entity ledger
 
-1. Read the full source and any supplied series material. Inventory recurring names, places, factions, organizations, titles, invented words, and ambiguous capitalized terms. Include cue-ID evidence for each identity/alias decision.
+1. Read supplied approved series material, then build the ledger incrementally from sequential source batches and their neighboring context. Inventory recurring names, places, factions, organizations, titles, invented words, and ambiguous capitalized terms with cue-ID evidence. Inspect additional source ranges when an ambiguity requires it; do not require a whole-film preload or claim unseen cues were reviewed. Later evidence triggers explicit revision and review of affected earlier cues.
 2. Keep the user's approved spelling, locale, transliteration system, honorific policy, and punctuation conventions. A glossary for one target locale is not automatically valid for another.
 3. Use one entry per entity. Record source spellings and aliases, a canonical target, and approved target forms. Do not merge two people simply because they have similar names. A title or surname is an alias only when the source establishes that link.
 4. Distinguish proper nouns from common words in context: “Rose” can be a person or a flower; “the North” can be a named region or a direction. Do not apply global substring replacement.
