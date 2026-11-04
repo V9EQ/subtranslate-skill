@@ -5,7 +5,7 @@ not include measured model-quality benchmark results.
 
 ## Cases
 
-[evals.json](evals.json) contains three task specifications and separate activation
+[evals.json](evals.json) contains four task specifications and separate activation
 checks:
 
 | Case | Main checks |
@@ -13,6 +13,11 @@ checks:
 | Continuity SRT → Russian | Glossary inflection, homonyms, ambiguity, numbers, and batch boundaries |
 | Protected WebVTT → Spanish | Metadata/tags, speaker turns, and instruction-like dialogue |
 | Malformed SRT → French | Stop on invalid timing without modifying the source or publishing a final file |
+| Read-only Russian terminology review | Detect deliberately inconsistent names/places without modifying files; accept valid inflection |
+
+The review fixture deliberately includes terminology drift and is not a gold
+translation. Its cue 2 also loses information about who gave the key; a broader
+semantic review should catch that, but the task assertions focus on terminology.
 
 Run activation checks separately: they test skill selection, including indirect
 requests, missing inputs, and unrelated tasks. Unsupported ASS input should
@@ -89,6 +94,32 @@ Example grade record:
 
 This is a format example, not an observed result. Review full outputs in addition
 to assertions; a checklist can miss errors it was not designed to catch.
+
+## Long-job and recovery experiments
+
+These are manual protocols, not claimed results or an automated runner. Use a
+rights-cleared full episode/movie for quality evaluation; repeated synthetic
+cues can test plumbing but not narrative continuity.
+
+- **Long file:** run the same file/model/settings on the previous revision and
+  current revision. Record total input/output/cache tokens (if exposed), retries,
+  tool calls, truncations, completed cues, and elapsed time. Grade full semantic
+  fidelity, distant callbacks, names, and batch boundaries. Do not count smaller
+  SKILL.md size as measured per-job savings.
+- **Resume:** interrupt after two accepted parts. Start a fresh session with only
+  the source and saved workspace; ask to continue. Assert no accepted cue is
+  regenerated unnecessarily, every remaining cue is present, and final verify
+  succeeds. Separately change source bytes and assert stale hashes are rejected.
+- **Glossary change:** after an accepted part, revise an approved spelling. Ask to
+  continue with the revision. Assert every affected earlier occurrence is reviewed,
+  unaffected files stay unchanged, and the checkpoint records the new revision.
+- **Truncation:** constrain output or use dense batches. Assert failed work is not
+  marked accepted, attempts are bounded, smaller ranges retain neighboring context,
+  and merge excludes abandoned parts. Never truncate successful output and present
+  it as an observed model failure.
+- **Small model:** repeat on an intended smaller model as well as a capable one.
+  Report adherence failures separately from mistranslation. No universal weak-model
+  guarantee follows from passing one language pair.
 
 ## Iterate
 

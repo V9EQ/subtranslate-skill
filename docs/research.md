@@ -2,6 +2,13 @@
 
 ## Scope and evidence
 
+This document records the initial design. The follow-up
+[authoring audit](skill-authoring-audit.md) supersedes its proposal status for
+bounded batches, partial validation, deterministic merge, incremental terminology,
+and review-only behavior. Checkpoints remain agent-maintained, not a validated
+locale/glossary-aware resume engine. The evaluation suite now has four tasks;
+controlled model trials are still pending.
+
 This design synthesizes the four requested authoring guides and primary project documentation found/read with Exa. Project observations below describe documented workflows, not a line-by-line code audit or measured comparison of their translation quality. No third-party implementation or prompt was copied. There is no claim of a unique new translation algorithm.
 
 ## Skill authoring guidance → concrete decisions
@@ -58,7 +65,9 @@ structure; detailed evidence and evaluation procedures stay in supporting docs.
 The opening “English-language” label was removed because it describes the
 instruction language, not a restriction on source or target languages.
 
-The following are proposals, **not implemented features or measured gains**:
+The following table is the **historical proposal backlog**, not the current feature
+list. See the follow-up audit above for implemented items; no measured model-quality
+gains are claimed:
 
 | Priority | Observed gap | Proposed change and acceptance check |
 | --- | --- | --- |

@@ -123,11 +123,15 @@ inputs and report unresolved terminology rather than inventing context.
 
 ## How it works
 
-1. Extract cue text locally with stable IDs and protected-token placeholders.
-2. Read the full source and establish an evidence-backed project glossary.
-3. Translate bounded, sequential batches with nearby read-only context.
-4. Review every cue for meaning, omissions, additions, and terminology drift.
-5. Render into the source skeleton, verify structure, and deliver a separate report.
+1. Extract a bounded cue window with stable IDs, protected tokens, and read-only neighbors.
+2. Build an evidence-backed glossary incrementally; no whole-film preload is required.
+3. Translate sequential batches, review each pair, and validate each part immediately.
+4. Save accepted parts and a compact checkpoint; audit terminology and batch boundaries.
+5. Merge parts deterministically, render into the original skeleton, and verify structure.
+
+For review-only requests, the agent inspects existing translations and reports drift
+without rewriting files. See [batch recovery](subtitle-translation/references/batches.md)
+for shrinking failed ranges and resuming after context compaction.
 
 Keep glossaries, checkpoints, and outputs in your project workspace, **outside**
 the installed skill directory. Structural verification cannot establish
@@ -162,7 +166,8 @@ checking it contains no project work. Remove backups separately if no longer nee
 | File | Contents |
 | --- | --- |
 | [SKILL.md](subtitle-translation/SKILL.md) | Activation metadata, workflow, safety rules, and JSON contract |
-| [subtitle_guard.py](subtitle-translation/scripts/subtitle_guard.py) | Local extraction, rendering, and structural verification |
+| [subtitle_guard.py](subtitle-translation/scripts/subtitle_guard.py) | Bounded extraction, batch checks, validated merging, rendering, and verification |
+| [batches.md](subtitle-translation/references/batches.md) | Context budgeting, failed ranges, checkpoints, and resumption |
 | [terminology.md](subtitle-translation/references/terminology.md) | Glossary evidence, aliases, homonyms, and inflection rules |
 | [review.md](subtitle-translation/references/review.md) | Structural/semantic review gates and report template |
 | [glossary.template.json](subtitle-translation/assets/glossary.template.json) | Reusable project glossary template |
@@ -180,8 +185,11 @@ Inspect the helper CLI or exercise individual workflow stages:
 
 ```bash
 python3 subtitle-translation/scripts/subtitle_guard.py --help
-python3 subtitle-translation/scripts/subtitle_guard.py extract episode.srt work/source.json
-# The agent writes work/translations.json using the contract in SKILL.md.
+python3 subtitle-translation/scripts/subtitle_guard.py batch episode.srt work/input-000001.json --start 1 --count 30
+# The agent writes work/part-000001.json, translating only the input's cues array.
+python3 subtitle-translation/scripts/subtitle_guard.py check episode.srt work/part-000001.json --start 1 --count 30
+# Repeat with next_start until null. Example merge for a job with two accepted parts:
+python3 subtitle-translation/scripts/subtitle_guard.py merge episode.srt work/translations.json work/part-000001.json work/part-000031.json
 python3 subtitle-translation/scripts/subtitle_guard.py render episode.srt work/translations.json episode.ru.srt
 python3 subtitle-translation/scripts/subtitle_guard.py verify episode.srt episode.ru.srt
 ```
@@ -197,3 +205,4 @@ Further documentation:
 
 - [Host compatibility evidence and limitations](docs/compatibility.md)
 - [Design research and improvement priorities](docs/research.md)
+- [Authoring audit, examples, and token-cost trade-offs](docs/skill-authoring-audit.md)
