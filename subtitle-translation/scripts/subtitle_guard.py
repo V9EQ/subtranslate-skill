@@ -182,6 +182,88 @@ def unique_object(pairs):
     return result
 
 
+def validate_text(cue, translated):
+    protected, tokens = protect(cue.text)
+    prefix = f"{cue.id}: "
+    require(isinstance(translated, str), prefix + "Expected string text.")
+    require("\r" not in translated, prefix + "Use LF in intermediate JSON.")
+    require(not any(c in translated for c in "\x00\v\f\x1c\x1d\x1e\x85\u2028\u2029\ufeff"),
+            prefix + "Forbidden control character or BOM.")
+    require(len(translated.split("\n")) == len(protected.split("\n")), prefix + "Payload line count changed.")
+    require(all(line.strip() for line in translated.split("\n")), prefix + "Blank payload line.")
+    require("-->" not in translated, prefix + "New timing arrow.")
+    require(not PROTECTED.search(translated) and "<" not in translated and "{\\" not in translated,
+            prefix + "New markup/entity; use existing placeholders only.")
+    for old_line, new_line in zip(protected.split("\n"), translated.split("\n")):
+        require(PLACEHOLDER.findall(old_line) == PLACEHOLDER.findall(new_line),
+                prefix + "Protected placeholders changed, reordered, or moved between lines.")
+    return PLACEHOLDER.sub(lambda match: tokens[int(match[0][2:-1])], translated)
+
+
+def load_entries(path, fingerprint, expected):
+    document = json.loads(Path(path).read_text(encoding="utf-8"), object_pairs_hook=unique_object)
+    require(isinstance(document, dict), "Translations must be a JSON object.")
+    require(document.get("source_sha256") == fingerprint, "Source fingerprint mismatch.")
+    entries = document.get("translations")
+    require(isinstance(entries, list), "Expected a translations array.")
+    require(all(isinstance(entry, dict) and isinstance(entry.get("text"), str) for entry in entries),
+            "Each translation must contain id and string text.")
+    require([entry.get("id") for entry in entries] == [cue.id for cue in expected],
+            "Cue IDs must match exactly, once each, in source order.")
+    for cue, entry in zip(expected, entries):
+        validate_text(cue, entry["text"])
+    return entries
+
+
+def cue_range(cues, start, count):
+    require(1 <= start <= len(cues), "start must be a 1-based cue position within the source.")
+    require(count > 0, "count must be positive.")
+    return cues[start - 1:start - 1 + count]
+
+
+def batch(source, output, start=1, count=30, context=3):
+    raw, _, _, cues = parse(source)
+    selected = cue_range(cues, start, count)
+    require(0 <= context <= 5, "context must be between 0 and 5.")
+    def texts(items):
+        return [{"id": cue.id, "text": protect(cue.text)[0]} for cue in items]
+    end = start - 1 + len(selected)
+    document = {
+        "source_sha256": hashlib.sha256(raw).hexdigest(),
+        "total_cues": len(cues),
+        "next_start": end + 1 if end < len(cues) else None,
+        "context_before": texts(cues[max(0, start - 1 - context):start - 1]),
+        "cues": texts(selected),
+        "context_after": texts(cues[end:end + context]),
+    }
+    publish(output, (json.dumps(document, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
+    return len(selected)
+
+
+def check(source, translations, start=1, count=30):
+    raw, _, _, cues = parse(source)
+    selected = cue_range(cues, start, count)
+    load_entries(translations, hashlib.sha256(raw).hexdigest(), selected)
+    return len(selected)
+
+
+def merge(source, output, parts):
+    raw, _, _, cues = parse(source)
+    fingerprint = hashlib.sha256(raw).hexdigest()
+    entries = []
+    for path in parts:
+        document = json.loads(Path(path).read_text(encoding="utf-8"), object_pairs_hook=unique_object)
+        require(isinstance(document, dict) and isinstance(document.get("translations"), list),
+                "Each part must contain a translations array.")
+        size = len(document["translations"])
+        require(size > 0, "Empty translation part.")
+        entries.extend(load_entries(path, fingerprint, cues[len(entries):len(entries) + size]))
+    require(len(entries) == len(cues), "Incomplete translation: missing cues.")
+    document = {"source_sha256": fingerprint, "translations": entries}
+    publish(output, (json.dumps(document, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
+    return len(entries)
+
+
 def render(source, translations, output):
     raw, text, _, cues = parse(source)
     document = json.loads(Path(translations).read_text(encoding="utf-8"), object_pairs_hook=unique_object)
@@ -196,21 +278,7 @@ def render(source, translations, output):
     chunks = []
     cursor = 0
     for cue, entry in zip(cues, entries):
-        protected, tokens = protect(cue.text)
-        translated = entry["text"]
-        prefix = f"{cue.id}: "
-        require("\r" not in translated, prefix + "Use LF in intermediate JSON.")
-        require(not any(c in translated for c in "\x00\v\f\x1c\x1d\x1e\x85\u2028\u2029\ufeff"),
-                prefix + "Forbidden control character or BOM.")
-        require(len(translated.split("\n")) == len(protected.split("\n")), prefix + "Payload line count changed.")
-        require(all(line.strip() for line in translated.split("\n")), prefix + "Blank payload line.")
-        require("-->" not in translated, prefix + "New timing arrow.")
-        require(not PROTECTED.search(translated) and "<" not in translated and "{\\" not in translated,
-                prefix + "New markup/entity; use existing placeholders only.")
-        for old_line, new_line in zip(protected.split("\n"), translated.split("\n")):
-            require(PLACEHOLDER.findall(old_line) == PLACEHOLDER.findall(new_line),
-                    prefix + "Protected placeholders changed, reordered, or moved between lines.")
-        restored = PLACEHOLDER.sub(lambda match: tokens[int(match[0][2:-1])], translated)
+        restored = validate_text(cue, entry["text"])
         # Restore each original newline, even in a file with mixed endings.
         endings = iter(re.findall(r"\r\n|\n", cue.text))
         restored = re.sub("\n", lambda _: next(endings), restored)
@@ -241,6 +309,21 @@ def main():
         command = commands.add_parser(name)
         for argument in arguments:
             command.add_argument(argument)
+    command = commands.add_parser("batch", help="Extract a bounded source window; context is read-only.")
+    command.add_argument("source")
+    command.add_argument("output")
+    command.add_argument("--start", type=int, default=1)
+    command.add_argument("--count", type=int, default=30)
+    command.add_argument("--context", type=int, default=3)
+    command = commands.add_parser("check", help="Validate one translated batch against its exact range.")
+    command.add_argument("source")
+    command.add_argument("translations")
+    command.add_argument("--start", type=int, default=1)
+    command.add_argument("--count", type=int, default=30)
+    command = commands.add_parser("merge", help="Validate and combine ordered translation parts.")
+    command.add_argument("source")
+    command.add_argument("output")
+    command.add_argument("parts", nargs="+")
     args = vars(parser.parse_args())
     command = args.pop("command")
     try:
