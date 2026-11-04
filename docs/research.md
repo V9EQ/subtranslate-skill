@@ -50,6 +50,38 @@ The README documents structured parsing, adaptive chunks, read-only previous con
 - **Auto-fixing can violate the task.** Retiming, cue merging, transcription repair, length compression and file conversion are out of scope by default.
 - **Silently retaining failed source lines hides incompleteness.** Keep checkpoints, but do not publish a final translation if required cues remain blocked.
 
+## Improvement priorities after documentation review
+
+The authoring guides standardize the **skill contract**, not a mandatory repository
+README layout. The revised README follows the local FFmpeg skill's user-facing
+structure; detailed evidence and evaluation procedures stay in supporting docs.
+The opening “English-language” label was removed because it describes the
+instruction language, not a restriction on source or target languages.
+
+The following are proposals, **not implemented features or measured gains**:
+
+| Priority | Observed gap | Proposed change and acceptance check |
+| --- | --- | --- |
+| 1 | Three task specs exist, but there are no paired model runs | Follow [the evaluation runbook](../subtitle-translation/evals/README.md), save traces and assertion evidence, and compare with/without-skill results before expanding the prompt. Report semantic, structural, and routing results separately. |
+| 1 | The description offers terminology review, but the numbered procedure assumes a new translation | Add an explicit review-only branch: inspect supplied translations/glossary, report cue-specific drift, and do not render or rewrite files unless asked. Add a review-only task that asserts no file mutation. |
+| 1 | Small fixtures do not exercise long jobs or conflicting project decisions | Add long-file/context truncation, glossary conflict, glossary revision, resume, mixed-language, and user-instruction conflict cases. Include Russian activation prompts and target-language pairs beyond the two successful-output fixtures. Keep held-out cases. |
+| 2 | Accepted batches are saved by instruction, but no deterministic resume/merge contract exists | After observing real resume failures, add a manifest keyed by source hash, locale, glossary revision, and accepted cue IDs. Test stale checkpoints, duplicate/missing batches, changed terminology, and interrupted publication. Avoid a source-string-only cache. |
+| 2 | The helper validates only a complete translation document | If traces show late discovery of batch errors, add partial-batch validation with explicit expected ID ranges. Validate placeholders and line counts before accepting a batch, then keep full-document verification mandatory. |
+| 2 | About 30 cues is a heuristic regardless of dialogue density | Evaluate context-budget-aware batches with room for glossary, overlap, and output; on truncation/invalid replies, shrink only the failed batch with a bounded retry budget. Compare continuity errors and token costs, not speed alone. |
+| 3 | Readability warnings are requested, but the helper has no measurement command | Add optional report-only line-length/CPS metrics using user-specified limits and documented counting rules for markup, entities, and Unicode. Expose durations without changing the preserved skeleton. Test dense dialogue and non-Latin scripts; never auto-retime or silently compress meaning. |
+| 3 | Installation and package checks are manual | Consider a tested no-clobber installer with external backups, plus CI for unit tests, frontmatter, bundled paths, JSON fixtures, and documentation links. Do not add plugin manifests or host-specific metadata without a concrete requirement. |
+
+These priorities apply the guides' recommendations to test before adding rules,
+keep the core concise, and bundle repeated deterministic work only when useful.
+[Subtitle Edit's advanced-engine documentation](https://subtitleedit.github.io/subtitleedit/features/auto-translate-advanced.html)
+provides a concrete precedent for contextual batches, glossary injection, and
+shrinking invalid batches.
+[LLM-Subtrans's project workflow](https://github.com/machinewrapped/llm-subtrans/wiki/GUI)
+provides a precedent for saved state/resumption and documents the continuity
+trade-off of parallel translation. These precedents motivate experiments, not
+claims that their defaults are optimal here. Transcription and broad format
+support remain outside this skill's scope.
+
 ## Evaluation status and next iteration
 
 The repository includes runnable deterministic unit tests and three end-to-end agent evaluation specifications. Unit tests exercise the helper, not model adherence or translation quality. A small manually authored Russian translation is tested through the real renderer to exercise the intermediate contract; that is not a controlled LLM benchmark.
