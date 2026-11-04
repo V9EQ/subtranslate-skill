@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "project": "",
+  "source_language": "",
+  "target_locale": "",
+  "style": {
+    "register": "Preserve the source register.",
+    "name_policy": "Use approved spellings; otherwise choose and record one consistent transliteration convention.",
+    "honorifics": "Preserve source distinctions; follow user preferences.",
+    "ambiguity": "Preserve uncertainty; do not infer unsupported identities or relationships."
+  },
+  "entities": [],
+  "revisions": []
+}
